@@ -34,6 +34,13 @@ export default function App() {
   const [exportTsvText, setExportTsvText] = useState('');
   const [isLoadingLive, setIsLoadingLive] = useState(false);
 
+  // Password Authentication States
+  const [password, setPassword] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    return localStorage.getItem('hoiana_auth') === 'H26';
+  });
+
   // Directly fetch live data from the published Google Sheet URL
   const fetchLiveGoogleSheet = async (showNotification = true) => {
     setIsLoadingLive(true);
@@ -138,6 +145,30 @@ export default function App() {
     setTimeout(() => {
       setSystemMessage(curr => curr?.text === text ? null : curr);
     }, 4500);
+  };
+
+  const handleLogin = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const trimmed = password.trim();
+    if (trimmed === 'H26' || trimmed.toUpperCase() === 'H26') {
+      localStorage.setItem('hoiana_auth', 'H26');
+      setIsAuthenticated(true);
+      setAuthError('');
+      showToast('Đăng nhập thành công!', 'success');
+    } else {
+      setAuthError('Mật mã truy cập không chính xác. Vui lòng thử lại!');
+      showToast('Mật mã truy cập không chính xác.', 'danger');
+    }
+  };
+
+  const handleLogout = () => {
+    const confirmLogout = window.confirm("Bạn có chắc chắn muốn đăng xuất?");
+    if (confirmLogout) {
+      localStorage.removeItem('hoiana_auth');
+      setIsAuthenticated(false);
+      setPassword('');
+      showToast('Đã đăng xuất thành công.', 'info');
+    }
   };
 
   const handleUpdateStatus = (id: string, newStatus: string) => {
@@ -267,6 +298,122 @@ export default function App() {
 
   const stats = calculateStatistics(bookings);
 
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-4 font-sans relative selection:bg-blue-600 selection:text-white" id="auth-wall-container">
+        
+        {/* Floating Background Effects */}
+        <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-1/4 right-1/4 w-72 h-72 bg-emerald-600/5 rounded-full blur-3xl pointer-events-none" />
+
+        {/* Global Toast Alert floating */}
+        {systemMessage && (
+          <div className="fixed top-6 right-6 z-50 max-w-sm animate-fade-in" id="auth-system-toast">
+            <div className={`p-4 rounded-xl border border-slate-800 shadow-2xl flex items-center gap-3 ${
+              systemMessage.type === 'success' ? 'bg-emerald-950 text-emerald-100 border-emerald-500/30' :
+              systemMessage.type === 'danger' ? 'bg-rose-950 text-rose-100 border-rose-500/30' :
+              'bg-slate-900 border-slate-800 text-slate-100'
+            }`}>
+              <span className={`w-2 h-2 rounded-full shrink-0 ${
+                systemMessage.type === 'success' ? 'bg-emerald-400' :
+                systemMessage.type === 'danger' ? 'bg-rose-400' :
+                'bg-blue-400'
+              }`}></span>
+              <p className="text-xs font-semibold">{systemMessage.text}</p>
+            </div>
+          </div>
+        )}
+
+        <div className="w-full max-w-md flex flex-col items-center gap-8 relative z-10">
+          
+          {/* HOIANA AQUAMAN Logo */}
+          <div className="flex items-center bg-black px-6 py-4 rounded-2xl border border-slate-850 shadow-2xl select-none text-center">
+            {/* Left Column: HOIANA */}
+            <div className="flex flex-col items-center justify-center text-center">
+              <span className="text-white font-sans font-black text-xl md:text-2xl tracking-[0.1em] leading-none">
+                HOIANA
+              </span>
+              <span className="text-slate-400 font-sans text-[8px] md:text-[9.5px] tracking-[0.22em] leading-none mt-1.5 font-bold">
+                RESORT & GOLF
+              </span>
+            </div>
+            
+            {/* Vertical line divider */}
+            <div className="h-9 w-[1px] bg-white opacity-40 mx-4" />
+            
+            {/* Right Column: AQUAMAN */}
+            <div className="flex flex-col items-start justify-center text-left">
+              <span className="text-white font-sans font-black text-xl md:text-2xl tracking-[0.05em] leading-none">
+                AQUAMAN
+              </span>
+              <div className="flex items-center gap-1.5 mt-1">
+                <span className="text-slate-400 font-sans text-[7px] md:text-[8px] tracking-[0.08em] leading-none font-semibold">
+                  BY VNEXPRESS MARATHON
+                </span>
+                <span className="bg-white text-slate-950 font-sans text-[7px] md:text-[8px] font-black px-1 py-0.2 rounded-xs select-none tracking-wider leading-none">
+                  VIETNAM
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Login container box */}
+          <div className="w-full bg-slate-900/40 backdrop-blur-md rounded-3xl border border-slate-900 p-8 shadow-2xl flex flex-col gap-6">
+            <div className="text-center">
+              <h2 className="text-sm font-bold text-slate-200 tracking-wider uppercase mb-1">CỔNG BÁO CÁO LIVE TRỰC TUYẾN</h2>
+              <p className="text-xs text-slate-400">Vui lòng xác thực quyền truy cập thông tin đặt phòng</p>
+            </div>
+
+            <form onSubmit={handleLogin} className="flex flex-col gap-4">
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Mật mã truy cập</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+                    <Lock className="w-4 h-4" />
+                  </div>
+                  <input
+                    type="password"
+                    placeholder="Nhập Password..."
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full pl-9 pr-4 py-3 bg-slate-950 border border-slate-850 rounded-xl text-sm font-semibold text-white tracking-wide placeholder-slate-700 focus:outline-hidden focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-inner"
+                    autoFocus
+                  />
+                </div>
+              </div>
+
+              {authError && (
+                <div className="p-3 bg-rose-950/30 border border-rose-500/20 text-rose-300 text-xs font-semibold rounded-xl text-center">
+                  ⚠️ {authError}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold uppercase tracking-wider shadow-lg shadow-blue-900/20 cursor-pointer active:scale-98 transition-all"
+              >
+                Xác thực truy cập
+              </button>
+            </form>
+
+            <div className="border-t border-slate-850 pt-4 text-center">
+              <p className="text-[10px] text-slate-500 leading-relaxed">
+                Hệ thống yêu cầu mật khẩu để hiển thị dữ liệu trực tuyến.<br/>
+                Mật mã gợi ý: <strong>H26</strong>
+              </p>
+            </div>
+
+          </div>
+
+          <p className="text-[10px] text-slate-600 tracking-tight select-none">
+            Room Booking Tracker &copy; 2026 HOIANA AQUAMAN. All rights reserved.
+          </p>
+
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen text-slate-800 flex flex-col font-sans" id="applet-viewport-root">
       
@@ -293,28 +440,62 @@ export default function App() {
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
           
           {/* Logo & Info */}
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-blue-600 rounded-xl text-white shadow-md animate-pulse">
-              <Building2 className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg font-bold font-display uppercase tracking-wide">Report.Live</h1>
-                <span className="bg-emerald-500 text-white text-[9px] px-1.5 py-0.5 rounded-full font-bold uppercase tracking-widest animate-pulse flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 bg-white rounded-full"></span> Live
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 md:gap-5">
+            {/* HOIANA AQUAMAN Vector Logo matching original banner style */}
+            <div className="flex items-center bg-black px-4 py-2.5 rounded-xl border border-slate-800 shadow-lg select-none text-center">
+              {/* Left Column: HOIANA */}
+              <div className="flex flex-col items-center justify-center text-center">
+                <span className="text-white font-sans font-black text-base md:text-lg tracking-[0.1em] leading-none">
+                  HOIANA
+                </span>
+                <span className="text-slate-400 font-sans text-[7px] md:text-[8px] tracking-[0.22em] leading-none mt-1 font-bold">
+                  RESORT & GOLF
                 </span>
               </div>
-              <p className="text-xs text-slate-400 font-medium font-semibold">Báo cáo trực tuyến & Quản lý Thống kê Trạng thái Đặt Phòng Sự Kiện</p>
+              
+              {/* Vertical line divider */}
+              <div className="h-7 w-[1px] bg-white opacity-40 mx-3" />
+              
+              {/* Right Column: AQUAMAN */}
+              <div className="flex flex-col items-start justify-center text-left font-sans">
+                <span className="text-white font-black text-base md:text-lg tracking-[0.05em] leading-none">
+                  AQUAMAN
+                </span>
+                <div className="flex items-center gap-1.5 mt-1 leading-none">
+                  <span className="text-slate-400 text-[6.5px] md:text-[7.5px] tracking-[0.08em] leading-none font-semibold">
+                    BY VNEXPRESS MARATHON
+                  </span>
+                  <span className="bg-white text-slate-950 text-[6.5px] md:text-[7.5px] font-black px-1 py-0.2 rounded-xs select-none tracking-wider leading-none">
+                    VIETNAM
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/35 text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-widest animate-pulse flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full"></span> Live
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 font-medium mt-1">Hệ thống báo cáo & quản lý đặt phòng sự kiện</p>
             </div>
           </div>
 
           {/* Dynamic timer & action triggers */}
-          <div className="flex flex-col md:items-end gap-1">
-            <div className="flex items-center gap-1.5 text-xs font-medium text-slate-300 font-mono bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700/60 shadow-inner">
+          <div className="flex flex-row md:flex-col items-center md:items-end gap-3 md:gap-1.5">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-slate-300 font-mono bg-slate-850 px-3 py-1.5 rounded-lg border border-slate-750 shadow-inner">
               <Clock className="w-3.5 h-3.5 text-emerald-400" />
               <span>{liveTime || 'Đang cập nhật thời gian...'} (GMT+7)</span>
             </div>
-            <p className="text-[10px] text-slate-500">Đồng bộ liên trì với dữ liệu Sheet của bạn</p>
+            
+            <button
+              onClick={handleLogout}
+              className="text-[10px] uppercase tracking-wider text-slate-400 font-semibold hover:text-rose-400 flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-800 hover:bg-rose-500/10 hover:border-rose-505/20 active:scale-95 transition-all cursor-pointer"
+            >
+              <Lock className="w-3 h-3" />
+              Đăng xuất
+            </button>
           </div>
 
         </div>
