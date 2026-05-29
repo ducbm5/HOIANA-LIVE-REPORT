@@ -1,0 +1,6 @@
+{
+  "name": "Báo Cáo Đặt Phòng Trực Tuyến",
+  "description": "Trang thống kê trực tuyến và quản lý danh sách đặt phòng sự kiện thể thao từ tệp Google Sheet.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
