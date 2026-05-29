@@ -56,7 +56,7 @@ export default function App() {
         setBookings(parsed);
         localStorage.setItem('google_sheet_bookings', JSON.stringify(parsed));
         if (showNotification) {
-          showToast(`Đã đồng bộ trực tiếp ${parsed.length} đặt phòng từ Google Sheet thành công!`, 'success');
+          showToast(`Đã đồng bộ trực tiếp ${parsed.length} đặt phòng thành công!`, 'success');
         }
         return true;
       } else {
@@ -79,7 +79,7 @@ export default function App() {
       // 1. First, check if we can fetch live data straight from the user's Sheet link
       const success = await fetchLiveGoogleSheet(false);
       if (success) {
-        showToast('Đã đồng bộ dữ liệu trực tiếp từ Google Sheet thành công.', 'success');
+        showToast('Đã đồng bộ dữ liệu trực tiếp thành công.', 'success');
         return;
       }
 
@@ -229,7 +229,7 @@ export default function App() {
     if (replaceExisting) {
       setBookings(reconciledBookings);
       localStorage.setItem('google_sheet_bookings', JSON.stringify(reconciledBookings));
-      showToast(`Đã đồng bộ toàn bộ ${reconciledBookings.length} đặt phòng mới từ Google Sheets (giữ nguyên trạng thái check-in đã ghi nhận).`, 'success');
+      showToast(`Đã đồng bộ toàn bộ ${reconciledBookings.length} đặt phòng mới thành công (giữ nguyên trạng thái check-in đã ghi nhận).`, 'success');
     } else {
       // Add only non-overlapping booking codes
       const existingCodes = new Set(bookings.map(b => b.bookingCode));
