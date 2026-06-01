@@ -274,7 +274,8 @@ export function parsePastedData(rawText: string): Booking[] {
     bookings.push(b as Booking);
   }
 
-  return bookings;
+  // Reverse the parsed bookings array to match the oldest-to-newest order (ngược với google sheet hiện tại)
+  return bookings.reverse();
 }
 
 // Convert DD/MM/YYYY or DD-MM-YYYY to YYYY-MM-DD (ISO) for consistent date logic

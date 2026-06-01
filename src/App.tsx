@@ -191,8 +191,8 @@ export default function App() {
 
   const handleSaveBooking = (saved: Booking) => {
     if (editingBooking === null) {
-      // Adding new
-      setBookings(prev => [saved, ...prev]);
+      // Adding new (append at the end to keep oldest-to-newest order)
+      setBookings(prev => [...prev, saved]);
       showToast(`Đã thêm mới thành công mã đặt phòng: ${saved.bookingCode}`, 'success');
     } else {
       // Editing existing
@@ -236,7 +236,8 @@ export default function App() {
       const filteredNew = reconciledBookings.filter(b => !existingCodes.has(b.bookingCode));
       const duplicatesCount = reconciledBookings.length - filteredNew.length;
       
-      setBookings(prev => [...filteredNew, ...prev]);
+      // Append new records to the end to keep oldest-to-newest chronological order
+      setBookings(prev => [...prev, ...filteredNew]);
       
       if (duplicatesCount > 0) {
         showToast(`Đã nạp thêm ${filteredNew.length} đặt phòng mới. Giữ nguyên trạng thái ${duplicatesCount} đặt phòng đã có sẵn.`, 'info');
