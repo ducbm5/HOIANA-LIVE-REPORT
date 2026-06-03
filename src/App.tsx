@@ -6,7 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { Booking } from './types';
 import { INITIAL_BOOKINGS } from './mockData';
-import { calculateStatistics, exportToTSV, exportToExcel, parsePastedData } from './utils';
+import { calculateStatistics, exportToTSV, exportToExcel, parsePastedData, parseDistanceSheet, DistanceRegistration } from './utils';
 import { StatBox } from './components/StatBox';
 import { BookingList } from './components/BookingList';
 import { BookingForm } from './components/BookingForm';
@@ -21,11 +21,14 @@ import {
   Database,
   CheckCircle2,
   Trash2,
-  Lock
+  Lock,
+  Flag,
+  Activity
 } from 'lucide-react';
 
 export default function App() {
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [distanceRegistrations, setDistanceRegistrations] = useState<DistanceRegistration[]>([]);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [editingBooking, setEditingBooking] = useState<Booking | null | undefined>(undefined); // undefined means closed, null means adding-new
   const [systemMessage, setSystemMessage] = useState<{ text: string; type: 'success' | 'info' | 'danger' } | null>(null);
@@ -33,6 +36,7 @@ export default function App() {
   const [showExportFallback, setShowExportFallback] = useState(false);
   const [exportTsvText, setExportTsvText] = useState('');
   const [isLoadingLive, setIsLoadingLive] = useState(false);
+  const [isLoadingDistance, setIsLoadingDistance] = useState(false);
 
   // Password Authentication States
   const [password, setPassword] = useState('');
@@ -73,40 +77,105 @@ export default function App() {
     }
   };
 
+  // Directly fetch live distance category statistics from the secondary published Google Sheet
+  const fetchLiveDistanceSheet = async (showNotification = true) => {
+    setIsLoadingDistance(true);
+    const distanceUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT6VrjLi3LkxOEUNjrykBy9-XATfDZO0ggz-Gdcqbeuvuy_yqj0JGt9fZ46tv088iAkmWlvacpKsZ7o/pub?output=tsv';
+    try {
+      const res = await fetch(distanceUrl);
+      if (!res.ok) {
+        throw new Error('Không thể fetch dữ liệu cự ly');
+      }
+      const rawText = await res.text();
+      const parsed = parseDistanceSheet(rawText);
+      if (parsed && parsed.length > 0) {
+        setDistanceRegistrations(parsed);
+        localStorage.setItem('google_sheet_distances', JSON.stringify(parsed));
+        if (showNotification) {
+          showToast(`Đã đồng bộ trực tiếp ${parsed.length} đăng ký cự ly chạy thành công!`, 'success');
+        }
+        return true;
+      } else {
+        throw new Error('Dữ liệu cự ly rỗng');
+      }
+    } catch (err) {
+      console.error("Lỗi đồng bộ trực tiếp Distance Sheet:", err);
+      if (showNotification) {
+        showToast('Lỗi đồng bộ cự ly trực tiếp. Hãy kiểm tra kết nối mạng.', 'danger');
+      }
+      return false;
+    } finally {
+      setIsLoadingDistance(false);
+    }
+  };
+
+  const handleSyncAllData = async () => {
+    setIsLoadingLive(true);
+    setIsLoadingDistance(true);
+    const r1 = await fetchLiveGoogleSheet(false);
+    const r2 = await fetchLiveDistanceSheet(false);
+    setIsLoadingLive(false);
+    setIsLoadingDistance(false);
+    if (r1 && r2) {
+      showToast('Đồng bộ thành công dữ liệu đặt phòng & cự ly trực tiếp!', 'success');
+    } else if (r1 || r2) {
+      showToast('Đồng bộ thành công một phần dữ liệu.', 'info');
+    } else {
+      showToast('Không thể đồng bộ trực tiếp dữ liệu. Hãy xem lại kết nối mạng.', 'danger');
+    }
+  };
+
   // Initial Load from Live Google Sheet, falling back to LocalStorage or Mock Data
   useEffect(() => {
     const loadData = async () => {
-      // 1. First, check if we can fetch live data straight from the user's Sheet link
-      const success = await fetchLiveGoogleSheet(false);
-      if (success) {
-        showToast('Đã đồng bộ dữ liệu trực tiếp thành công.', 'success');
+      // 1. Try fetching first
+      const successBookings = await fetchLiveGoogleSheet(false);
+      const successDistances = await fetchLiveDistanceSheet(false);
+
+      if (successBookings && successDistances) {
+        showToast('Đã đồng bộ toàn bộ dữ liệu trực tiếp thành công.', 'success');
         return;
       }
 
-      // 2. Fall back to LocalStorage
-      try {
-        const saved = localStorage.getItem('google_sheet_bookings');
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            // Apply filtering just in case local storage contains old stale items
-            const filtered = parsed.filter((b: Booking) => {
-              const rNum = (b.roomNumber || '').trim().toUpperCase();
-              const isAqua = rNum.startsWith('AQUA') || rNum.includes('AQUA') || rNum.startsWith('AQ');
-              return b.status === 'Thành công' && !isAqua;
-            });
-            setBookings(filtered);
-            showToast('Không thể kết nối Internet. Đang hiển thị dữ liệu đã lưu cục bộ.', 'info');
-            return;
+      // Check offline fallback for bookings
+      if (!successBookings) {
+        try {
+          const saved = localStorage.getItem('google_sheet_bookings');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              const filtered = parsed.filter((b: Booking) => {
+                const rNum = (b.roomNumber || '').trim().toUpperCase();
+                const isAqua = rNum.startsWith('AQUA') || rNum.includes('AQUA') || rNum.startsWith('AQ');
+                return b.status === 'Thành công' && !isAqua;
+              });
+              setBookings(filtered);
+              showToast('Đang hiển thị dữ liệu lịch đặt phòng lưu cục bộ.', 'info');
+            } else {
+              setBookings(INITIAL_BOOKINGS);
+            }
+          } else {
+            setBookings(INITIAL_BOOKINGS);
           }
+        } catch (e) {
+          setBookings(INITIAL_BOOKINGS);
         }
-      } catch (e) {
-        console.error("Local storage error:", e);
       }
 
-      // 3. Last resort fallback
-      setBookings(INITIAL_BOOKINGS);
-      showToast('Khởi chạy ứng dụng với dữ liệu thử nghiệm.', 'info');
+      // Check offline fallback for distances
+      if (!successDistances) {
+        try {
+          const savedDists = localStorage.getItem('google_sheet_distances');
+          if (savedDists) {
+            const parsedDists = JSON.parse(savedDists);
+            if (Array.isArray(parsedDists) && parsedDists.length > 0) {
+              setDistanceRegistrations(parsedDists);
+            }
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }
     };
 
     loadData();
@@ -514,14 +583,14 @@ export default function App() {
           <div className="flex flex-wrap items-center gap-2">
             {/* Live Sheet Sync trigger button */}
             <button
-              onClick={() => fetchLiveGoogleSheet(true)}
-              disabled={isLoadingLive}
+              onClick={handleSyncAllData}
+              disabled={isLoadingLive || isLoadingDistance}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm cursor-pointer flex items-center gap-1.5 transition-all hover:scale-103 active:scale-97 disabled:opacity-55 disabled:cursor-not-allowed"
               id="btn-live-sync-sheets"
-              title="Đồng bộ trực tiếp dữ liệu mới nhất từ tệp Google Sheets của bạn"
+              title="Đồng bộ trực tiếp dữ liệu mới nhất từ cả hai tệp Google Sheets"
             >
-              <RefreshCw className={`w-4 h-4 ${isLoadingLive ? 'animate-spin' : ''}`} />
-              {isLoadingLive ? 'Đang đồng bộ...' : 'Đồng bộ dữ liệu'}
+              <RefreshCw className={`w-4 h-4 ${(isLoadingLive || isLoadingDistance) ? 'animate-spin' : ''}`} />
+              {(isLoadingLive || isLoadingDistance) ? 'Đang đồng bộ...' : 'Đồng bộ dữ liệu'}
             </button>
 
             {/* Download file */}
@@ -545,11 +614,17 @@ export default function App() {
         {/* 1/ Statistics Box Block */}
         <section className="space-y-3" id="stats-section-box">
           <div className="flex items-center justify-between">
-            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">1/ BẢNG THỐNG KÊ CHI TIẾT (LIVE PORT)</h2>
-            <span className="text-[10px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full font-medium">Khớp thời gian chạy thời gian thực</span>
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">1/ BẢNG THỐNG KÊ CHI TIẾT LƯU TRÚ (LIVE PORT)</h2>
+            <span className="text-[10px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full font-medium">Khớp thời gian thực</span>
           </div>
-          <StatBox stats={stats} />
+          <StatBox 
+            stats={stats} 
+            distanceRegistrations={distanceRegistrations}
+            isLoadingDistance={isLoadingDistance}
+            onRefreshDistance={() => fetchLiveDistanceSheet(true)}
+          />
         </section>
+
 
         {/* 2/ Dual Listings Section & booking search */}
         <section className="space-y-3" id="listings-section">

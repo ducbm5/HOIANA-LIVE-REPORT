@@ -427,3 +427,62 @@ export function exportToExcel(bookings: Booking[]): Uint8Array {
   const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
   return new Uint8Array(excelBuffer);
 }
+
+export interface DistanceRegistration {
+  matchId: string;
+  matchName: string;
+  distance: string;
+}
+
+export function parseDistanceSheet(rawText: string): DistanceRegistration[] {
+  if (!rawText) return [];
+  const lines = rawText.split(/\r?\n/);
+  const registrations: DistanceRegistration[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+
+    // Split by tabs for TSV formatting
+    const cells = line.split('\t').map(c => c.trim());
+    
+    // Check if it's the header row
+    const firstCell = (cells[0] || '').toLowerCase();
+    const secondCell = (cells[1] || '').toLowerCase();
+    const thirdCell = (cells[2] || '').toLowerCase();
+    
+    if (
+      firstCell.includes('match id') ||
+      firstCell === 'match_id' ||
+      firstCell === 'id' ||
+      thirdCell.includes('cu ly') ||
+      thirdCell.includes('cự ly') ||
+      (firstCell === 'match id' && secondCell === 'match name' && thirdCell === 'cu ly')
+    ) {
+      continue; // Skip header line
+    }
+
+    if (cells.length >= 3) {
+      registrations.push({
+        matchId: cells[0] || '',
+        matchName: cells[1] || '',
+        distance: cells[2] || 'Chưa phân loại'
+      });
+    } else if (cells.length === 2) {
+      registrations.push({
+        matchId: cells[0] || '',
+        matchName: cells[1] || '',
+        distance: 'Chưa phân loại'
+      });
+    } else if (cells.length === 1) {
+      registrations.push({
+        matchId: cells[0] || '',
+        matchName: '',
+        distance: 'Chưa phân loại'
+      });
+    }
+  }
+
+  return registrations;
+}
+

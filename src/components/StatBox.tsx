@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { Statistics } from '../types';
-import { formatVND } from '../utils';
+import { formatVND, DistanceRegistration } from '../utils';
 import { 
   Building2, 
   Calendar, 
@@ -15,19 +15,39 @@ import {
   Clock, 
   XCircle, 
   Award,
+  Flag,
   TrendingUp,
   Info
 } from 'lucide-react';
 
 interface StatBoxProps {
   stats: Statistics;
+  distanceRegistrations: DistanceRegistration[];
+  isLoadingDistance?: boolean;
+  onRefreshDistance?: () => void;
 }
 
-export function StatBox({ stats }: StatBoxProps) {
+export function StatBox({ stats, distanceRegistrations, isLoadingDistance, onRefreshDistance }: StatBoxProps) {
   // Success rate for visually rich support
   const successRate = stats.totalBookings > 0 
     ? Math.round((stats.successfulCount / stats.totalBookings) * 100) 
     : 0;
+
+  const distanceStats = React.useMemo(() => {
+    const statsMap: Record<string, number> = {};
+    let total = 0;
+    distanceRegistrations.forEach(reg => {
+      const dist = (reg.distance || 'Chưa phân loại').trim();
+      statsMap[dist] = (statsMap[dist] || 0) + 1;
+      total++;
+    });
+    return {
+      total,
+      breakdown: Object.entries(statsMap)
+        .map(([distance, count]) => ({ distance, count }))
+        .sort((a, b) => b.count - a.count)
+    };
+  }, [distanceRegistrations]);
 
   return (
     <div className="space-y-6" id="booking-stats-box">
@@ -131,23 +151,93 @@ export function StatBox({ stats }: StatBoxProps) {
           </div>
         </div>
 
-        {/* Pricing calculations notes */}
+        {/* Thống kê cự ly đăng ký quy mô giải chạy từ Google Sheets */}
         <div className="bg-white rounded-xl border border-slate-100 p-4 shadow-xs flex flex-col justify-between" id="distribution-operations">
           <div>
-            <h3 className="text-sm font-semibold text-slate-700 mb-2 flex items-center gap-1.5">
-              <TrendingUp className="w-4 h-4 text-teal-600" />
-              Cách Thức Tính Doanh Thu
-            </h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              - <strong>Tổng tiền đặt phòng</strong> = [Số phòng được gán / đặt] &times; [Số ngày lưu trú] &times; <strong>2.300.000 đ/đêm</strong>. Chỉ tính các đơn chưa hủy.
-            </p>
-            <p className="text-xs text-slate-500 leading-relaxed mt-1">
-              - <strong>Tiền vé tại trường</strong> = Tổng giá trị cột [SO TIEN] thu thập từ các runner có giao dịch trạng thái "Thành công".
-            </p>
+            <div className="flex items-center justify-between gap-1 mb-2 pb-1.5 border-b border-slate-100">
+              <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                <Flag className="w-4 h-4 text-indigo-500 animate-pulse shrink-0" />
+                Cự Ly Đăng Ký Giải
+              </h3>
+              <span className="text-[10px] bg-blue-50 border border-blue-150 text-blue-700 font-bold px-2 py-0.5 rounded-full shrink-0">
+                Tổng: {distanceStats.total} BIB
+              </span>
+            </div>
+
+            {distanceStats.total === 0 ? (
+              <div className="py-6 text-center text-xs text-slate-400 font-medium">
+                Chưa có dữ liệu đồng bộ. Nhấn "Tải lại".
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                {distanceStats.breakdown.map(({ distance, count }) => {
+                  const percentage = distanceStats.total > 0
+                    ? Math.round((count / distanceStats.total) * 100)
+                    : 0;
+                  
+                  // Color helpers
+                  const norm = distance.toLowerCase();
+                  let colorClass = 'bg-slate-50 border-slate-150 text-slate-705';
+                  let barColor = '#64748b'; // slate-500
+                  if (norm.includes('21km') || norm.includes('21')) {
+                    colorClass = 'bg-indigo-50 border-indigo-150 text-indigo-700';
+                    barColor = '#4f46e5';
+                  } else if (norm.includes('10km') || norm.includes('10')) {
+                    colorClass = 'bg-amber-50 border-amber-150 text-amber-700';
+                    barColor = '#d97706';
+                  } else if (norm.includes('5km') || norm.includes('5')) {
+                    colorClass = 'bg-teal-50 border-teal-150 text-teal-700';
+                    barColor = '#0d9488';
+                  } else if (norm.includes('42km') || norm.includes('42')) {
+                    colorClass = 'bg-rose-50 border-rose-150 text-rose-700';
+                    barColor = '#e11d48';
+                  } else if (norm.includes('aquaman') || norm.includes('solo')) {
+                    colorClass = 'bg-blue-50 border-blue-150 text-blue-700';
+                    barColor = '#2563eb';
+                  } else if (norm.includes('sprint') || norm.includes('half')) {
+                    colorClass = 'bg-purple-50 border-purple-150 text-purple-700';
+                    barColor = '#8b5cf6';
+                  }
+
+                  return (
+                    <div key={distance} className="flex flex-col justify-center bg-slate-50/40 p-2 rounded-lg border border-slate-100">
+                      <div className="flex items-center justify-between text-[11px] gap-1">
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded font-extrabold border uppercase tracking-tight truncate max-w-[65px] ${colorClass}`}>
+                          {distance}
+                        </span>
+                        <span className="font-bold text-slate-700 font-mono text-[10px] whitespace-nowrap">{count} ({percentage}%)</span>
+                      </div>
+                      <div className="w-full bg-slate-200/55 rounded-full h-1 mt-1.5 overflow-hidden">
+                        <div 
+                          className="h-1 rounded-full transition-all duration-500" 
+                          style={{ width: `${percentage}%`, backgroundColor: barColor }}
+                        ></div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-          <div className="border-t border-slate-100 pt-2.5 mt-2 flex justify-between text-[11px] text-slate-400 font-semibold">
-            <span></span>
-            <span>HĐ: Active</span>
+
+          <div className="border-t border-slate-100 pt-2 mt-2.5 flex justify-between items-center text-[10px] text-slate-400 font-semibold">
+            <span className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+              Đồng bộ tự động
+            </span>
+            {isLoadingDistance ? (
+              <span className="text-blue-600 font-bold animate-pulse text-[9px] uppercase">Đang tải...</span>
+            ) : (
+              onRefreshDistance && (
+                <button
+                  onClick={onRefreshDistance}
+                  type="button"
+                  className="hover:text-blue-600 font-extrabold text-[9px] uppercase tracking-wider bg-slate-100 hover:bg-slate-200/80 px-2 py-0.5 rounded transition-all cursor-pointer"
+                >
+                  Tải lại
+                </button>
+              )
+            )}
           </div>
         </div>
 
