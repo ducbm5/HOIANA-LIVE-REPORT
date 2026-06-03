@@ -21,7 +21,9 @@ export const INITIAL_BOOKINGS: Booking[] = [
     roomNumber: "302",
     bookingCode: "DLT42A1",
     amount: 3200000,
-    status: "Thành công"
+    status: "Thành công",
+    gender: "Nam",
+    createdAt: "22/05/2026 09:30:15"
   },
   {
     id: "2",
@@ -38,7 +40,9 @@ export const INITIAL_BOOKINGS: Booking[] = [
     roomNumber: "105",
     bookingCode: "DLT21B2",
     amount: 1800000,
-    status: "Thành công"
+    status: "Thành công",
+    gender: "Nữ",
+    createdAt: "23/05/2026 14:15:22"
   },
   {
     id: "3",

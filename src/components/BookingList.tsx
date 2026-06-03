@@ -183,7 +183,18 @@ export function BookingList({
                       </div>
 
                       <div className="flex flex-col">
-                        <h4 className="font-bold text-slate-800 text-sm tracking-tight">{b.fullName}</h4>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-bold text-slate-800 text-sm tracking-tight">{b.fullName}</h4>
+                          {b.gender && b.gender.trim() && (
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold leading-none ${
+                              b.gender.trim().toLowerCase() === 'nam' || b.gender.trim().toLowerCase() === 'male'
+                                ? 'bg-indigo-50 text-indigo-700 border border-indigo-150'
+                                : 'bg-rose-50 text-rose-700 border border-rose-150'
+                            }`}>
+                              {b.gender}
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       {/* Display Stays Details precisely */}
@@ -193,12 +204,15 @@ export function BookingList({
                       </div>
 
                       {/* Detail mini specifications */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-y-1.5 gap-x-3 pt-1.5 border-t border-slate-100 mt-1 text-[11.5px] text-slate-500">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-y-1.5 gap-x-3 pt-1.5 border-t border-slate-100 mt-1 text-[11.5px] text-slate-500">
                         <div>
                           <span>SĐT: </span><strong className="font-bold text-slate-800 font-mono">{b.phone || '-'}</strong>
                         </div>
                         <div>
                           <span>CCCD: </span><strong className="font-bold text-slate-800 font-mono">{b.idCard || '-'}</strong>
+                        </div>
+                        <div>
+                          <span>Giới tính: </span><strong className="font-bold text-slate-700">{b.gender || '-'}</strong>
                         </div>
                         <div>
                           <span className="text-[11px] text-slate-400">Email: </span><span className="font-mono text-slate-600 truncate max-w-[130px] inline-block">{b.email || '-'}</span>

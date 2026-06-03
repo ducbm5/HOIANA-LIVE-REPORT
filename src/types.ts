@@ -19,6 +19,8 @@ export interface Booking {
   bookingCode: string;  // MA DAT PHONG
   amount: number;       // SO TIEN
   status: string;       // TRANG THAI (e.g., 'Thành công', 'Chờ thanh toán', 'Đã hủy')
+  gender?: string;      // GIOI TINH
+  createdAt?: string;   // NGAY TAO
 }
 
 export interface Statistics {

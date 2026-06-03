@@ -190,10 +190,14 @@ export function parsePastedData(rawText: string): Booking[] {
       headerMap['amount'] = index;
     } else if (cleaned.includes('trangthai') || cleaned.includes('status')) {
       headerMap['status'] = index;
+    } else if (cleaned.includes('gioitinh') || cleaned.includes('gender') || cleaned === 'sex' || cleaned === 'tinhnm') {
+      headerMap['gender'] = index;
+    } else if (cleaned.includes('ngaytao') || cleaned.includes('createdat') || cleaned.includes('create')) {
+      headerMap['createdAt'] = index;
     }
   });
 
-  // If we couldn't map at least a few columns, support fallback default order matching columns A - N
+  // If we couldn't map at least a few columns, support fallback default order matching columns A - P
   const isFallbackNeeded = Object.keys(headerMap).length < 3;
   const startIndex = isFallbackNeeded ? 0 : 1;
 
@@ -217,30 +221,35 @@ export function parsePastedData(rawText: string): Booking[] {
       roomNumber: '',
       bookingCode: '',
       amount: 0,
-      status: 'Chờ thanh toán'
+      status: 'Chờ thanh toán',
+      gender: '',
+      createdAt: ''
     };
 
     if (isFallbackNeeded) {
       if (cells[0] !== undefined) b.matchId = cells[0];
-      if (cells[1] !== undefined) b.matchName = '';
+      if (cells[1] !== undefined) b.matchName = cells[1] || '';
       if (cells[2] !== undefined) b.fullName = cells[2];
       if (cells[3] !== undefined) b.idCard = cells[3];
-      if (cells[4] !== undefined) b.phone = formatPhoneWithZero(cells[4]);
-      if (cells[5] !== undefined) b.email = cells[5];
-      if (cells[6] !== undefined) b.distance = cells[6];
-      if (cells[7] !== undefined) b.checkInDate = reformatDateToIso(cells[7]);
-      if (cells[8] !== undefined) b.checkOutDate = reformatDateToIso(cells[8]);
-      if (cells[9] !== undefined) b.numberOfDays = parseInt(cells[9]) || 1;
-      if (cells[10] !== undefined) b.roomNumber = cells[10];
-      if (cells[11] !== undefined) b.bookingCode = cells[11];
-      if (cells[12] !== undefined) b.amount = parsePrice(cells[12]);
-      if (cells[13] !== undefined) b.status = cells[13];
+      if (cells[4] !== undefined) b.gender = cells[4];
+      if (cells[5] !== undefined) b.phone = formatPhoneWithZero(cells[5]);
+      if (cells[6] !== undefined) b.email = cells[6];
+      if (cells[7] !== undefined) b.distance = cells[7];
+      if (cells[8] !== undefined) b.checkInDate = reformatDateToIso(cells[8]);
+      if (cells[9] !== undefined) b.checkOutDate = reformatDateToIso(cells[9]);
+      if (cells[10] !== undefined) b.numberOfDays = parseInt(cells[10]) || 1;
+      if (cells[11] !== undefined) b.roomNumber = cells[11];
+      if (cells[12] !== undefined) b.bookingCode = cells[12];
+      if (cells[13] !== undefined) b.amount = parsePrice(cells[13]);
+      if (cells[14] !== undefined) b.status = cells[14];
+      if (cells[15] !== undefined) b.createdAt = cells[15];
     } else {
       // Map using matched headers
       if (headerMap['matchId'] !== undefined) b.matchId = cells[headerMap['matchId']] || '';
-      if (headerMap['matchName'] !== undefined) b.matchName = '';
+      if (headerMap['matchName'] !== undefined) b.matchName = cells[headerMap['matchName']] || '';
       if (headerMap['fullName'] !== undefined) b.fullName = cells[headerMap['fullName']] || '';
       if (headerMap['idCard'] !== undefined) b.idCard = cells[headerMap['idCard']] || '';
+      if (headerMap['gender'] !== undefined) b.gender = cells[headerMap['gender']] || '';
       if (headerMap['phone'] !== undefined) b.phone = formatPhoneWithZero(cells[headerMap['phone']]);
       if (headerMap['email'] !== undefined) b.email = cells[headerMap['email']] || '';
       if (headerMap['distance'] !== undefined) b.distance = cells[headerMap['distance']] || '';
@@ -251,6 +260,7 @@ export function parsePastedData(rawText: string): Booking[] {
       if (headerMap['bookingCode'] !== undefined) b.bookingCode = cells[headerMap['bookingCode']] || '';
       if (headerMap['amount'] !== undefined) b.amount = parsePrice(cells[headerMap['amount']]);
       if (headerMap['status'] !== undefined) b.status = cells[headerMap['status']] || 'Thành công';
+      if (headerMap['createdAt'] !== undefined) b.createdAt = cells[headerMap['createdAt']] || '';
     }
 
     // Ensure state defaults and normalizations
@@ -370,6 +380,7 @@ export function exportToExcel(bookings: Booking[]): Uint8Array {
     'STT',
     'HO TEN', 
     'CCCD',
+    'GIOI TINH',
     'SDT',
     'EMAIL',
     'CU LY',
@@ -380,7 +391,8 @@ export function exportToExcel(bookings: Booking[]): Uint8Array {
     'MA DAT PHONG', 
     'SO TIEN DAT PHONG',
     'TIEN BIB',
-    'TONG TIEN'
+    'TONG TIEN',
+    'NGAY TAO'
   ];
 
   const data = bookings.map((b, index) => {
@@ -393,6 +405,7 @@ export function exportToExcel(bookings: Booking[]): Uint8Array {
       'STT': index + 1,
       'HO TEN': b.fullName || '',
       'CCCD': b.idCard || '',
+      'GIOI TINH': b.gender || '',
       'SDT': b.phone || '',
       'EMAIL': b.email || '',
       'CU LY': b.distance || '',
@@ -403,7 +416,8 @@ export function exportToExcel(bookings: Booking[]): Uint8Array {
       'MA DAT PHONG': b.bookingCode || '',
       'SO TIEN DAT PHONG': roomBookingAmount,
       'TIEN BIB': bibAmount,
-      'TONG TIEN': b.amount || 0
+      'TONG TIEN': b.amount || 0,
+      'NGAY TAO': b.createdAt || ''
     };
   });
 

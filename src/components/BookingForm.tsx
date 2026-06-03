@@ -28,6 +28,8 @@ export function BookingForm({ booking, onSave, onClose }: BookingFormProps) {
   const [bookingCode, setBookingCode] = useState('');
   const [amount, setAmount] = useState(0);
   const [status, setStatus] = useState('Thành công');
+  const [gender, setGender] = useState('Nam');
+  const [createdAt, setCreatedAt] = useState('');
 
    useEffect(() => {
     if (booking) {
@@ -45,6 +47,8 @@ export function BookingForm({ booking, onSave, onClose }: BookingFormProps) {
       setBookingCode(booking.bookingCode || '');
       setAmount(booking.amount || 0);
       setStatus(booking.status || 'Thành công');
+      setGender(booking.gender || 'Nam');
+      setCreatedAt(booking.createdAt || '');
     } else {
       // Setup default placeholder values for a new booking
       const generatedCode = 'MDP' + Math.floor(1000 + Math.random() * 9000);
@@ -55,6 +59,11 @@ export function BookingForm({ booking, onSave, onClose }: BookingFormProps) {
       setCheckOutDate('2026-06-14');
       setNumberOfDays(2);
       setAmount(1500000);
+      setGender('Nam');
+      // Default to current timestamp format (DD/MM/YYYY HH:MM:SS)
+      const now = new Date();
+      const datetimeStr = `${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getFullYear()} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+      setCreatedAt(datetimeStr);
     }
   }, [booking]);
 
@@ -98,7 +107,9 @@ export function BookingForm({ booking, onSave, onClose }: BookingFormProps) {
       roomNumber: roomNumber.trim() || 'Chưa xếp',
       bookingCode: bookingCode.trim().toUpperCase(),
       amount: Number(amount) || 0,
-      status: 'Thành công'
+      status: 'Thành công',
+      gender: gender.trim(),
+      createdAt: createdAt.trim()
     };
 
     onSave(savedBooking);
@@ -143,7 +154,7 @@ export function BookingForm({ booking, onSave, onClose }: BookingFormProps) {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <div className="space-y-1">
                 <label className="text-[11px] font-bold text-slate-500 uppercase block">Số Điện Thoại (SDT)</label>
                 <input
@@ -164,6 +175,19 @@ export function BookingForm({ booking, onSave, onClose }: BookingFormProps) {
                   placeholder="Số căn cước..."
                   className="w-full border border-slate-200 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-blue-500 bg-slate-50 focus:bg-white focus:outline-hidden transition-all font-mono"
                 />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-slate-500 uppercase block">Giới tính (GIOI TINH)</label>
+                <select
+                  value={gender}
+                  onChange={(e) => setGender(e.target.value)}
+                  className="w-full border border-slate-200 bg-slate-50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500 rounded-xl p-2.5 text-xs cursor-pointer transition-all"
+                >
+                  <option value="Nam">Nam</option>
+                  <option value="Nữ">Nữ</option>
+                  <option value="">Chưa chọn</option>
+                </select>
               </div>
             </div>
           </div>
@@ -250,7 +274,7 @@ export function BookingForm({ booking, onSave, onClose }: BookingFormProps) {
           </div>
 
           {/* Room and pricing description */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-1">
               <label className="text-[11px] font-bold text-slate-500 uppercase block">Số Phòng / Hiệu Phòng (SO PHONG)</label>
               <input
@@ -277,6 +301,17 @@ export function BookingForm({ booking, onSave, onClose }: BookingFormProps) {
                   đ
                 </span>
               </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-[11px] font-bold text-slate-500 uppercase block">Ngày Tạo (NGAY TAO)</label>
+              <input
+                type="text"
+                value={createdAt}
+                onChange={(e) => setCreatedAt(e.target.value)}
+                placeholder="Ngày giờ tạo..."
+                className="w-full border border-slate-200 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-blue-500 bg-slate-50 focus:bg-white focus:outline-hidden transition-all font-mono text-slate-700 font-semibold"
+              />
             </div>
           </div>
 
