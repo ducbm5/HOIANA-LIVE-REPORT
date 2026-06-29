@@ -48,6 +48,7 @@ export function StatBox({ stats, distanceRegistrations, isLoadingDistance, onRef
   const [passwordInput, setPasswordInput] = React.useState('');
   const [passwordError, setPasswordError] = React.useState('');
   const [tempOffsets, setTempOffsets] = React.useState<Record<string, string>>({});
+  const [flagClickCount, setFlagClickCount] = React.useState(0);
   
   // Google Apps Script Cloud Sync States (Hardcoded URL)
   const appsScriptUrl = 'https://script.google.com/macros/s/AKfycby1m4VGZS9X_NqZGkumu-IRH9uYcH03tXVpwSscABcJ1Ml9kEJB25j1i5yH7sU7IGef/exec';
@@ -73,7 +74,7 @@ export function StatBox({ stats, distanceRegistrations, isLoadingDistance, onRef
         }
       }
     } catch (e) {
-      console.error('Error fetching offsets from Apps Script:', e);
+      console.warn('Could not fetch offsets from Apps Script (using local cache fallback):', e);
     } finally {
       setIsSyncingOffsets(false);
     }
@@ -91,7 +92,7 @@ export function StatBox({ stats, distanceRegistrations, isLoadingDistance, onRef
         throw new Error('Save response not ok');
       }
     } catch (e) {
-      console.error('Error saving offsets to Apps Script:', e);
+      console.warn('Could not save offsets to Apps Script (saved locally):', e);
     } finally {
       setIsSyncingOffsets(false);
     }
@@ -263,17 +264,23 @@ export function StatBox({ stats, distanceRegistrations, isLoadingDistance, onRef
               <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                 <button
                   onClick={() => {
-                    if (!isPasswordOpen && !isConfigOpen) {
-                      setIsPasswordOpen(true);
-                      setPasswordInput('');
-                      setPasswordError('');
-                    } else {
+                    if (isPasswordOpen || isConfigOpen) {
                       setIsPasswordOpen(false);
                       setIsConfigOpen(false);
+                      setFlagClickCount(0);
+                    } else {
+                      const nextCount = flagClickCount + 1;
+                      if (nextCount >= 10) {
+                        setIsPasswordOpen(true);
+                        setPasswordInput('');
+                        setPasswordError('');
+                        setFlagClickCount(0);
+                      } else {
+                        setFlagClickCount(nextCount);
+                      }
                     }
                   }}
-                  className="hover:scale-110 transition-transform cursor-pointer focus:outline-hidden text-indigo-500 hover:text-indigo-600 active:scale-95"
-                  title="Cấu hình số ảo (Yêu cầu mật khẩu)"
+                  className="hover:scale-110 transition-transform cursor-default focus:outline-hidden text-indigo-500 hover:text-indigo-600 active:scale-95"
                   type="button"
                 >
                   <Flag className="w-4 h-4 animate-pulse shrink-0" />
@@ -426,8 +433,7 @@ export function StatBox({ stats, distanceRegistrations, isLoadingDistance, onRef
                     </div>
                   </div>
                   <div className="text-center space-y-1">
-                    <p className="text-[10px] font-extrabold text-slate-600 uppercase tracking-wider animate-pulse">Đang nạp & cộng số ảo...</p>
-                    <p className="text-[9px] text-slate-400 font-semibold">Kết hợp số thực và cấu hình cộng thêm</p>
+                    <p className="text-[10px] font-extrabold text-slate-600 uppercase tracking-wider animate-pulse">Đang nạp...</p>
                   </div>
                 </div>
               ) : distanceStats.total === 0 ? (
@@ -490,7 +496,7 @@ export function StatBox({ stats, distanceRegistrations, isLoadingDistance, onRef
           <div className="border-t border-slate-100 pt-2 mt-2.5 flex justify-between items-center text-[10px] text-slate-400 font-semibold">
             <span className="flex items-center gap-1">
               <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${isSyncingOffsets ? 'bg-indigo-500' : 'bg-emerald-500'}`}></span>
-              {isSyncingOffsets ? 'Đang đồng bộ số ảo...' : 'Đồng bộ tự động'}
+              {isSyncingOffsets ? 'Đang đồng bộ...' : 'Đồng bộ tự động'}
             </span>
             {(isLoadingDistance || isSyncingOffsets) ? (
               <span className="text-blue-600 font-bold animate-pulse text-[9px] uppercase">Đang tải...</span>
