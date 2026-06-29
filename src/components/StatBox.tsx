@@ -283,7 +283,7 @@ export function StatBox({ stats, distanceRegistrations, isLoadingDistance, onRef
                   className="hover:scale-110 transition-transform cursor-default focus:outline-hidden text-indigo-500 hover:text-indigo-600 active:scale-95"
                   type="button"
                 >
-                  <Flag className="w-4 h-4 animate-pulse shrink-0" />
+                  <Flag className="w-4 h-4 shrink-0" />
                 </button>
                 Cự Ly Đăng Ký Giải
               </h3>
