@@ -49,11 +49,8 @@ export function StatBox({ stats, distanceRegistrations, isLoadingDistance, onRef
   const [passwordError, setPasswordError] = React.useState('');
   const [tempOffsets, setTempOffsets] = React.useState<Record<string, string>>({});
   
-  // Google Apps Script Cloud Sync States
-  const [appsScriptUrl, setAppsScriptUrl] = React.useState<string>(() => {
-    return localStorage.getItem('apps_script_url') || 'https://script.google.com/macros/s/AKfycbwxBGLuKefX5UCp_jGPnmDzfYf7XUvCU0C19L_YpzQaFSpZAJoTEESolcKjNVNarHlF/exec';
-  });
-  const [tempAppsScriptUrl, setTempAppsScriptUrl] = React.useState<string>('');
+  // Google Apps Script Cloud Sync States (Hardcoded URL)
+  const appsScriptUrl = 'https://script.google.com/macros/s/AKfycby1m4VGZS9X_NqZGkumu-IRH9uYcH03tXVpwSscABcJ1Ml9kEJB25j1i5yH7sU7IGef/exec';
   const [isSyncingOffsets, setIsSyncingOffsets] = React.useState(false);
 
   // Function to load offsets from the cloud (Google Apps Script)
@@ -284,7 +281,7 @@ export function StatBox({ stats, distanceRegistrations, isLoadingDistance, onRef
                 Cự Ly Đăng Ký Giải
               </h3>
               <span className="text-[10px] bg-blue-50 border border-blue-150 text-blue-700 font-bold px-2 py-0.5 rounded-full shrink-0">
-                Tổng: {distanceStats.total} BIB
+                Tổng: {(isLoadingDistance || isSyncingOffsets) ? '...' : `${distanceStats.total}`} BIB
               </span>
             </div>
 
@@ -304,7 +301,6 @@ export function StatBox({ stats, distanceRegistrations, isLoadingDistance, onRef
                           setIsConfigOpen(true);
                           setIsPasswordOpen(false);
                           setPasswordError('');
-                          setTempAppsScriptUrl(appsScriptUrl);
                           const initialTemp: Record<string, string> = {};
                           uniqueDistances.forEach(dist => {
                             initialTemp[dist] = (offsets[dist] || 0).toString();
@@ -327,7 +323,6 @@ export function StatBox({ stats, distanceRegistrations, isLoadingDistance, onRef
                         setIsConfigOpen(true);
                         setIsPasswordOpen(false);
                         setPasswordError('');
-                        setTempAppsScriptUrl(appsScriptUrl);
                         const initialTemp: Record<string, string> = {};
                         uniqueDistances.forEach(dist => {
                           initialTemp[dist] = (offsets[dist] || 0).toString();
@@ -392,19 +387,6 @@ export function StatBox({ stats, distanceRegistrations, isLoadingDistance, onRef
                   ))}
                 </div>
 
-                <div className="space-y-1 pt-1 border-t border-slate-100">
-                  <label className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400 block">
-                    Đồng bộ Google Apps Script URL (Database):
-                  </label>
-                  <input
-                    type="text"
-                    value={tempAppsScriptUrl}
-                    onChange={(e) => setTempAppsScriptUrl(e.target.value)}
-                    placeholder="Dán link Web App URL vào đây..."
-                    className="w-full px-2 py-1 text-[10px] border border-slate-200 rounded focus:outline-hidden focus:border-indigo-500 bg-white placeholder-slate-400"
-                  />
-                </div>
-
                 <div className="flex gap-2 pt-1 border-t border-slate-100">
                   <button
                     onClick={() => {
@@ -416,13 +398,7 @@ export function StatBox({ stats, distanceRegistrations, isLoadingDistance, onRef
                       setOffsets(finalOffsets);
                       localStorage.setItem('distance_offsets', JSON.stringify(finalOffsets));
                       
-                      const cleanUrl = tempAppsScriptUrl.trim();
-                      setAppsScriptUrl(cleanUrl);
-                      localStorage.setItem('apps_script_url', cleanUrl);
-                      
-                      if (cleanUrl) {
-                        saveOffsetsToCloud(finalOffsets, cleanUrl);
-                      }
+                      saveOffsetsToCloud(finalOffsets, appsScriptUrl);
                       
                       setIsConfigOpen(false);
                     }}
@@ -441,7 +417,20 @@ export function StatBox({ stats, distanceRegistrations, isLoadingDistance, onRef
                 </div>
               </div>
             ) : (
-              distanceStats.total === 0 ? (
+              (isLoadingDistance || isSyncingOffsets) ? (
+                <div className="py-10 flex flex-col items-center justify-center space-y-3" id="distance-stats-loader">
+                  <div className="relative flex items-center justify-center">
+                    <div className="w-9 h-9 border-4 border-indigo-100 border-t-indigo-600 rounded-full animate-spin"></div>
+                    <div className="absolute w-5 h-5 bg-white rounded-full flex items-center justify-center">
+                      <Flag className="w-3.5 h-3.5 text-indigo-500" />
+                    </div>
+                  </div>
+                  <div className="text-center space-y-1">
+                    <p className="text-[10px] font-extrabold text-slate-600 uppercase tracking-wider animate-pulse">Đang nạp & cộng số ảo...</p>
+                    <p className="text-[9px] text-slate-400 font-semibold">Kết hợp số thực và cấu hình cộng thêm</p>
+                  </div>
+                </div>
+              ) : distanceStats.total === 0 ? (
                 <div className="py-6 text-center text-xs text-slate-400 font-medium">
                   Chưa có dữ liệu đồng bộ. Nhấn "Tải lại".
                 </div>
