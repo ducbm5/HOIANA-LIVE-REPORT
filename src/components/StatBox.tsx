@@ -34,14 +34,7 @@ export function StatBox({ stats, distanceRegistrations, isLoadingDistance, onRef
     : 0;
 
   // Local fake offsets state
-  const [offsets, setOffsets] = React.useState<Record<string, number>>(() => {
-    try {
-      const saved = localStorage.getItem('distance_offsets');
-      return saved ? JSON.parse(saved) : {};
-    } catch (e) {
-      return {};
-    }
-  });
+  const [offsets, setOffsets] = React.useState<Record<string, number>>({});
 
   const [isPasswordOpen, setIsPasswordOpen] = React.useState(false);
   const [isConfigOpen, setIsConfigOpen] = React.useState(false);
@@ -52,33 +45,41 @@ export function StatBox({ stats, distanceRegistrations, isLoadingDistance, onRef
   
   // Google Apps Script Cloud Sync States (Hardcoded URL)
   const appsScriptUrl = 'https://script.google.com/macros/s/AKfycby1m4VGZS9X_NqZGkumu-IRH9uYcH03tXVpwSscABcJ1Ml9kEJB25j1i5yH7sU7IGef/exec';
+  const tsvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTq3WXBWebt6tihwF2eREizr0PEf3sM6d92wvtR940rMFxxifmdMi1Xg5QGmTxVwG-Xf4x5sm5ShlmY/pub?output=tsv';
   const [isSyncingOffsets, setIsSyncingOffsets] = React.useState(false);
 
-  // Function to load offsets from the cloud (Google Apps Script)
-  const fetchOffsetsFromCloud = React.useCallback(async (urlToUse?: string) => {
-    const targetUrl = urlToUse || appsScriptUrl;
-    if (!targetUrl) return;
+  // Function to load offsets from the cloud (Google Sheet TSV)
+  const fetchOffsetsFromCloud = React.useCallback(async () => {
     setIsSyncingOffsets(true);
     try {
-      const res = await fetch(`${targetUrl}${targetUrl.includes('?') ? '&' : '?'}nocache=${Date.now()}`);
+      const res = await fetch(`${tsvUrl}${tsvUrl.includes('?') ? '&' : '?'}nocache=${Date.now()}`);
       if (res.ok) {
-        const data = await res.json();
-        if (data && typeof data === 'object') {
-          const validated: Record<string, number> = {};
-          Object.keys(data).forEach(key => {
-            const num = parseInt(data[key], 10);
-            validated[key] = isNaN(num) ? 0 : num;
-          });
-          setOffsets(validated);
-          localStorage.setItem('distance_offsets', JSON.stringify(validated));
+        const text = await res.text();
+        const lines = text.split(/\r?\n/);
+        const validated: Record<string, number> = {};
+        
+        // Skip header line (index 0)
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) continue;
+          const parts = line.split('\t');
+          if (parts.length >= 2) {
+            const distance = parts[0].trim().replace(/^["']|["']$/g, '');
+            const rawVal = parts[1].trim().replace(/^["']|["']$/g, '');
+            const num = parseInt(rawVal, 10);
+            if (!isNaN(num)) {
+              validated[distance] = num;
+            }
+          }
         }
+        setOffsets(validated);
       }
     } catch (e) {
-      console.warn('Could not fetch offsets from Apps Script (using local cache fallback):', e);
+      console.warn('Could not fetch offsets from Google Sheet TSV:', e);
     } finally {
       setIsSyncingOffsets(false);
     }
-  }, [appsScriptUrl]);
+  }, []);
 
   // Function to save offsets to the cloud (Google Apps Script)
   const saveOffsetsToCloud = React.useCallback(async (finalOffsets: Record<string, number>, urlToUse?: string) => {
@@ -92,7 +93,7 @@ export function StatBox({ stats, distanceRegistrations, isLoadingDistance, onRef
         throw new Error('Save response not ok');
       }
     } catch (e) {
-      console.warn('Could not save offsets to Apps Script (saved locally):', e);
+      console.warn('Could not save offsets to Apps Script:', e);
     } finally {
       setIsSyncingOffsets(false);
     }
@@ -100,10 +101,8 @@ export function StatBox({ stats, distanceRegistrations, isLoadingDistance, onRef
 
   // Sync on mount or when master distance registrations are updated
   React.useEffect(() => {
-    if (appsScriptUrl) {
-      fetchOffsetsFromCloud();
-    }
-  }, [appsScriptUrl, distanceRegistrations, fetchOffsetsFromCloud]);
+    fetchOffsetsFromCloud();
+  }, [distanceRegistrations, fetchOffsetsFromCloud]);
 
   // Wrapper for refreshing both standard distance sheets and fake offsets
   const handleRefreshDistances = async () => {
