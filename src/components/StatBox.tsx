@@ -48,6 +48,74 @@ export function StatBox({ stats, distanceRegistrations, isLoadingDistance, onRef
   const [passwordInput, setPasswordInput] = React.useState('');
   const [passwordError, setPasswordError] = React.useState('');
   const [tempOffsets, setTempOffsets] = React.useState<Record<string, string>>({});
+  
+  // Google Apps Script Cloud Sync States
+  const [appsScriptUrl, setAppsScriptUrl] = React.useState<string>(() => {
+    return localStorage.getItem('apps_script_url') || 'https://script.google.com/macros/s/AKfycbwxBGLuKefX5UCp_jGPnmDzfYf7XUvCU0C19L_YpzQaFSpZAJoTEESolcKjNVNarHlF/exec';
+  });
+  const [tempAppsScriptUrl, setTempAppsScriptUrl] = React.useState<string>('');
+  const [isSyncingOffsets, setIsSyncingOffsets] = React.useState(false);
+
+  // Function to load offsets from the cloud (Google Apps Script)
+  const fetchOffsetsFromCloud = React.useCallback(async (urlToUse?: string) => {
+    const targetUrl = urlToUse || appsScriptUrl;
+    if (!targetUrl) return;
+    setIsSyncingOffsets(true);
+    try {
+      const res = await fetch(`${targetUrl}${targetUrl.includes('?') ? '&' : '?'}nocache=${Date.now()}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && typeof data === 'object') {
+          const validated: Record<string, number> = {};
+          Object.keys(data).forEach(key => {
+            const num = parseInt(data[key], 10);
+            validated[key] = isNaN(num) ? 0 : num;
+          });
+          setOffsets(validated);
+          localStorage.setItem('distance_offsets', JSON.stringify(validated));
+        }
+      }
+    } catch (e) {
+      console.error('Error fetching offsets from Apps Script:', e);
+    } finally {
+      setIsSyncingOffsets(false);
+    }
+  }, [appsScriptUrl]);
+
+  // Function to save offsets to the cloud (Google Apps Script)
+  const saveOffsetsToCloud = React.useCallback(async (finalOffsets: Record<string, number>, urlToUse?: string) => {
+    const targetUrl = urlToUse || appsScriptUrl;
+    if (!targetUrl) return;
+    setIsSyncingOffsets(true);
+    try {
+      const dataStr = encodeURIComponent(JSON.stringify(finalOffsets));
+      const res = await fetch(`${targetUrl}${targetUrl.includes('?') ? '&' : '?'}action=save&data=${dataStr}`);
+      if (!res.ok) {
+        throw new Error('Save response not ok');
+      }
+    } catch (e) {
+      console.error('Error saving offsets to Apps Script:', e);
+    } finally {
+      setIsSyncingOffsets(false);
+    }
+  }, [appsScriptUrl]);
+
+  // Sync on mount or when master distance registrations are updated
+  React.useEffect(() => {
+    if (appsScriptUrl) {
+      fetchOffsetsFromCloud();
+    }
+  }, [appsScriptUrl, distanceRegistrations, fetchOffsetsFromCloud]);
+
+  // Wrapper for refreshing both standard distance sheets and fake offsets
+  const handleRefreshDistances = async () => {
+    if (onRefreshDistance) {
+      onRefreshDistance();
+    }
+    if (appsScriptUrl) {
+      fetchOffsetsFromCloud();
+    }
+  };
 
   const uniqueDistances = React.useMemo(() => {
     const set = new Set<string>();
@@ -236,6 +304,7 @@ export function StatBox({ stats, distanceRegistrations, isLoadingDistance, onRef
                           setIsConfigOpen(true);
                           setIsPasswordOpen(false);
                           setPasswordError('');
+                          setTempAppsScriptUrl(appsScriptUrl);
                           const initialTemp: Record<string, string> = {};
                           uniqueDistances.forEach(dist => {
                             initialTemp[dist] = (offsets[dist] || 0).toString();
@@ -258,6 +327,7 @@ export function StatBox({ stats, distanceRegistrations, isLoadingDistance, onRef
                         setIsConfigOpen(true);
                         setIsPasswordOpen(false);
                         setPasswordError('');
+                        setTempAppsScriptUrl(appsScriptUrl);
                         const initialTemp: Record<string, string> = {};
                         uniqueDistances.forEach(dist => {
                           initialTemp[dist] = (offsets[dist] || 0).toString();
@@ -300,7 +370,7 @@ export function StatBox({ stats, distanceRegistrations, isLoadingDistance, onRef
                   </button>
                 </div>
                 
-                <div className="max-h-[150px] overflow-y-auto space-y-1.5 pr-1 scrollbar-thin">
+                <div className="max-h-[120px] overflow-y-auto space-y-1.5 pr-1 scrollbar-thin">
                   {uniqueDistances.map(dist => (
                     <div key={dist} className="flex items-center justify-between gap-2 bg-slate-50/70 p-1.5 rounded-lg border border-slate-100">
                       <span className="text-[10px] font-extrabold text-slate-600 uppercase truncate max-w-[120px]">{dist}</span>
@@ -322,6 +392,19 @@ export function StatBox({ stats, distanceRegistrations, isLoadingDistance, onRef
                   ))}
                 </div>
 
+                <div className="space-y-1 pt-1 border-t border-slate-100">
+                  <label className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400 block">
+                    Đồng bộ Google Apps Script URL (Database):
+                  </label>
+                  <input
+                    type="text"
+                    value={tempAppsScriptUrl}
+                    onChange={(e) => setTempAppsScriptUrl(e.target.value)}
+                    placeholder="Dán link Web App URL vào đây..."
+                    className="w-full px-2 py-1 text-[10px] border border-slate-200 rounded focus:outline-hidden focus:border-indigo-500 bg-white placeholder-slate-400"
+                  />
+                </div>
+
                 <div className="flex gap-2 pt-1 border-t border-slate-100">
                   <button
                     onClick={() => {
@@ -332,6 +415,15 @@ export function StatBox({ stats, distanceRegistrations, isLoadingDistance, onRef
                       });
                       setOffsets(finalOffsets);
                       localStorage.setItem('distance_offsets', JSON.stringify(finalOffsets));
+                      
+                      const cleanUrl = tempAppsScriptUrl.trim();
+                      setAppsScriptUrl(cleanUrl);
+                      localStorage.setItem('apps_script_url', cleanUrl);
+                      
+                      if (cleanUrl) {
+                        saveOffsetsToCloud(finalOffsets, cleanUrl);
+                      }
+                      
                       setIsConfigOpen(false);
                     }}
                     type="button"
@@ -408,15 +500,15 @@ export function StatBox({ stats, distanceRegistrations, isLoadingDistance, onRef
 
           <div className="border-t border-slate-100 pt-2 mt-2.5 flex justify-between items-center text-[10px] text-slate-400 font-semibold">
             <span className="flex items-center gap-1">
-              <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
-              Đồng bộ tự động
+              <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${isSyncingOffsets ? 'bg-indigo-500' : 'bg-emerald-500'}`}></span>
+              {isSyncingOffsets ? 'Đang đồng bộ số ảo...' : 'Đồng bộ tự động'}
             </span>
-            {isLoadingDistance ? (
+            {(isLoadingDistance || isSyncingOffsets) ? (
               <span className="text-blue-600 font-bold animate-pulse text-[9px] uppercase">Đang tải...</span>
             ) : (
               onRefreshDistance && (
                 <button
-                  onClick={onRefreshDistance}
+                  onClick={handleRefreshDistances}
                   type="button"
                   className="hover:text-blue-600 font-extrabold text-[9px] uppercase tracking-wider bg-slate-100 hover:bg-slate-200/80 px-2 py-0.5 rounded transition-all cursor-pointer"
                 >
