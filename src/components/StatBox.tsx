@@ -33,21 +33,61 @@ export function StatBox({ stats, distanceRegistrations, isLoadingDistance, onRef
     ? Math.round((stats.successfulCount / stats.totalBookings) * 100) 
     : 0;
 
+  // Local fake offsets state
+  const [offsets, setOffsets] = React.useState<Record<string, number>>(() => {
+    try {
+      const saved = localStorage.getItem('distance_offsets');
+      return saved ? JSON.parse(saved) : {};
+    } catch (e) {
+      return {};
+    }
+  });
+
+  const [isPasswordOpen, setIsPasswordOpen] = React.useState(false);
+  const [isConfigOpen, setIsConfigOpen] = React.useState(false);
+  const [passwordInput, setPasswordInput] = React.useState('');
+  const [passwordError, setPasswordError] = React.useState('');
+  const [tempOffsets, setTempOffsets] = React.useState<Record<string, string>>({});
+
+  const uniqueDistances = React.useMemo(() => {
+    const set = new Set<string>();
+    distanceRegistrations.forEach(reg => {
+      if (reg.distance) {
+        set.add(reg.distance.trim());
+      }
+    });
+    if (set.size === 0) {
+      return ['5KM', '10KM', '21KM', '42KM'];
+    }
+    return Array.from(set).sort();
+  }, [distanceRegistrations]);
+
   const distanceStats = React.useMemo(() => {
     const statsMap: Record<string, number> = {};
     let total = 0;
+    
+    // 1. Base counts
     distanceRegistrations.forEach(reg => {
       const dist = (reg.distance || 'Chưa phân loại').trim();
       statsMap[dist] = (statsMap[dist] || 0) + 1;
       total++;
     });
+
+    // 2. Add offsets
+    Object.keys(offsets).forEach(dist => {
+      if (offsets[dist] > 0) {
+        statsMap[dist] = (statsMap[dist] || 0) + offsets[dist];
+        total += offsets[dist];
+      }
+    });
+
     return {
       total,
       breakdown: Object.entries(statsMap)
         .map(([distance, count]) => ({ distance, count }))
         .sort((a, b) => b.count - a.count)
     };
-  }, [distanceRegistrations]);
+  }, [distanceRegistrations, offsets]);
 
   return (
     <div className="space-y-6" id="booking-stats-box">
@@ -152,11 +192,27 @@ export function StatBox({ stats, distanceRegistrations, isLoadingDistance, onRef
         </div>
 
         {/* Thống kê cự ly đăng ký quy mô giải chạy từ Google Sheets */}
-        <div className="bg-white rounded-xl border border-slate-100 p-4 shadow-xs flex flex-col justify-between" id="distribution-operations">
+        <div className="bg-white rounded-xl border border-slate-100 p-4 shadow-xs flex flex-col justify-between min-h-[240px]" id="distribution-operations">
           <div>
             <div className="flex items-center justify-between gap-1 mb-2 pb-1.5 border-b border-slate-100">
               <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-                <Flag className="w-4 h-4 text-indigo-500 animate-pulse shrink-0" />
+                <button
+                  onClick={() => {
+                    if (!isPasswordOpen && !isConfigOpen) {
+                      setIsPasswordOpen(true);
+                      setPasswordInput('');
+                      setPasswordError('');
+                    } else {
+                      setIsPasswordOpen(false);
+                      setIsConfigOpen(false);
+                    }
+                  }}
+                  className="hover:scale-110 transition-transform cursor-pointer focus:outline-hidden text-indigo-500 hover:text-indigo-600 active:scale-95"
+                  title="Cấu hình số ảo (Yêu cầu mật khẩu)"
+                  type="button"
+                >
+                  <Flag className="w-4 h-4 animate-pulse shrink-0" />
+                </button>
                 Cự Ly Đăng Ký Giải
               </h3>
               <span className="text-[10px] bg-blue-50 border border-blue-150 text-blue-700 font-bold px-2 py-0.5 rounded-full shrink-0">
@@ -164,59 +220,189 @@ export function StatBox({ stats, distanceRegistrations, isLoadingDistance, onRef
               </span>
             </div>
 
-            {distanceStats.total === 0 ? (
-              <div className="py-6 text-center text-xs text-slate-400 font-medium">
-                Chưa có dữ liệu đồng bộ. Nhấn "Tải lại".
+            {isPasswordOpen ? (
+              <div className="py-2.5 space-y-3">
+                <p className="text-[11px] font-bold text-slate-600">Yêu cầu xác thực mật khẩu cấu hình:</p>
+                <div className="space-y-1.5">
+                  <input
+                    type="password"
+                    value={passwordInput}
+                    onChange={(e) => setPasswordInput(e.target.value)}
+                    placeholder=""
+                    className="w-full px-2.5 py-1.5 text-xs border border-slate-200 rounded-lg focus:outline-hidden focus:border-indigo-500 bg-white"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        if (passwordInput === '898989') {
+                          setIsConfigOpen(true);
+                          setIsPasswordOpen(false);
+                          setPasswordError('');
+                          const initialTemp: Record<string, string> = {};
+                          uniqueDistances.forEach(dist => {
+                            initialTemp[dist] = (offsets[dist] || 0).toString();
+                          });
+                          setTempOffsets(initialTemp);
+                        } else {
+                          setPasswordError('Mật khẩu không chính xác');
+                        }
+                      }
+                    }}
+                  />
+                  {passwordError && (
+                    <p className="text-[10px] text-rose-600 font-bold">{passwordError}</p>
+                  )}
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={() => {
+                      if (passwordInput === '898989') {
+                        setIsConfigOpen(true);
+                        setIsPasswordOpen(false);
+                        setPasswordError('');
+                        const initialTemp: Record<string, string> = {};
+                        uniqueDistances.forEach(dist => {
+                          initialTemp[dist] = (offsets[dist] || 0).toString();
+                        });
+                        setTempOffsets(initialTemp);
+                      } else {
+                        setPasswordError('Mật khẩu không chính xác');
+                      }
+                    }}
+                    type="button"
+                    className="flex-1 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[11px] rounded-lg transition-colors cursor-pointer"
+                  >
+                    Xác nhận
+                  </button>
+                  <button
+                    onClick={() => setIsPasswordOpen(false)}
+                    type="button"
+                    className="flex-1 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-[11px] rounded-lg transition-colors cursor-pointer"
+                  >
+                    Hủy
+                  </button>
+                </div>
               </div>
-            ) : (
-              <div className="grid grid-cols-2 gap-2 mt-2">
-                {distanceStats.breakdown.map(({ distance, count }) => {
-                  const percentage = distanceStats.total > 0
-                    ? Math.round((count / distanceStats.total) * 100)
-                    : 0;
-                  
-                  // Color helpers
-                  const norm = distance.toLowerCase();
-                  let colorClass = 'bg-slate-50 border-slate-150 text-slate-705';
-                  let barColor = '#64748b'; // slate-500
-                  if (norm.includes('21km') || norm.includes('21')) {
-                    colorClass = 'bg-indigo-50 border-indigo-150 text-indigo-700';
-                    barColor = '#4f46e5';
-                  } else if (norm.includes('10km') || norm.includes('10')) {
-                    colorClass = 'bg-amber-50 border-amber-150 text-amber-700';
-                    barColor = '#d97706';
-                  } else if (norm.includes('5km') || norm.includes('5')) {
-                    colorClass = 'bg-teal-50 border-teal-150 text-teal-700';
-                    barColor = '#0d9488';
-                  } else if (norm.includes('42km') || norm.includes('42')) {
-                    colorClass = 'bg-rose-50 border-rose-150 text-rose-700';
-                    barColor = '#e11d48';
-                  } else if (norm.includes('aquaman') || norm.includes('solo')) {
-                    colorClass = 'bg-blue-50 border-blue-150 text-blue-700';
-                    barColor = '#2563eb';
-                  } else if (norm.includes('sprint') || norm.includes('half')) {
-                    colorClass = 'bg-purple-50 border-purple-150 text-purple-700';
-                    barColor = '#8b5cf6';
-                  }
-
-                  return (
-                    <div key={distance} className="flex flex-col justify-center bg-slate-50/40 p-2 rounded-lg border border-slate-100">
-                      <div className="flex items-center justify-between text-[11px] gap-1">
-                        <span className={`text-[9px] px-1.5 py-0.5 rounded font-extrabold border uppercase tracking-tight truncate max-w-[65px] ${colorClass}`}>
-                          {distance}
-                        </span>
-                        <span className="font-bold text-slate-700 font-mono text-[10px] whitespace-nowrap">{count} ({percentage}%)</span>
-                      </div>
-                      <div className="w-full bg-slate-200/55 rounded-full h-1 mt-1.5 overflow-hidden">
-                        <div 
-                          className="h-1 rounded-full transition-all duration-500" 
-                          style={{ width: `${percentage}%`, backgroundColor: barColor }}
-                        ></div>
+            ) : isConfigOpen ? (
+              <div className="py-1 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wide text-slate-500">Cấu hình cộng thêm vé:</span>
+                  <button
+                    onClick={() => {
+                      const reseted: Record<string, string> = {};
+                      uniqueDistances.forEach(dist => {
+                        reseted[dist] = '0';
+                      });
+                      setTempOffsets(reseted);
+                    }}
+                    type="button"
+                    className="text-[9px] text-rose-600 font-bold bg-rose-50 hover:bg-rose-100 px-2 py-0.5 rounded transition-all cursor-pointer"
+                  >
+                    Đặt về 0
+                  </button>
+                </div>
+                
+                <div className="max-h-[150px] overflow-y-auto space-y-1.5 pr-1 scrollbar-thin">
+                  {uniqueDistances.map(dist => (
+                    <div key={dist} className="flex items-center justify-between gap-2 bg-slate-50/70 p-1.5 rounded-lg border border-slate-100">
+                      <span className="text-[10px] font-extrabold text-slate-600 uppercase truncate max-w-[120px]">{dist}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] text-slate-400 font-bold">+</span>
+                        <input
+                          type="number"
+                          min="0"
+                          value={tempOffsets[dist] || ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setTempOffsets(prev => ({ ...prev, [dist]: val }));
+                          }}
+                          className="w-16 px-1.5 py-0.5 text-right text-xs font-mono font-bold border border-slate-200 rounded focus:outline-hidden focus:border-indigo-500 bg-white"
+                          placeholder="0"
+                        />
                       </div>
                     </div>
-                  );
-                })}
+                  ))}
+                </div>
+
+                <div className="flex gap-2 pt-1 border-t border-slate-100">
+                  <button
+                    onClick={() => {
+                      const finalOffsets: Record<string, number> = {};
+                      uniqueDistances.forEach(dist => {
+                        const val = parseInt(tempOffsets[dist] || '0', 10);
+                        finalOffsets[dist] = isNaN(val) || val < 0 ? 0 : val;
+                      });
+                      setOffsets(finalOffsets);
+                      localStorage.setItem('distance_offsets', JSON.stringify(finalOffsets));
+                      setIsConfigOpen(false);
+                    }}
+                    type="button"
+                    className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] rounded-lg transition-colors cursor-pointer"
+                  >
+                    Lưu
+                  </button>
+                  <button
+                    onClick={() => setIsConfigOpen(false)}
+                    type="button"
+                    className="flex-1 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-[11px] rounded-lg transition-colors cursor-pointer"
+                  >
+                    Đóng
+                  </button>
+                </div>
               </div>
+            ) : (
+              distanceStats.total === 0 ? (
+                <div className="py-6 text-center text-xs text-slate-400 font-medium">
+                  Chưa có dữ liệu đồng bộ. Nhấn "Tải lại".
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  {distanceStats.breakdown.map(({ distance, count }) => {
+                    const percentage = distanceStats.total > 0
+                      ? Math.round((count / distanceStats.total) * 100)
+                      : 0;
+                    
+                    // Color helpers
+                    const norm = distance.toLowerCase();
+                    let colorClass = 'bg-slate-50 border-slate-150 text-slate-705';
+                    let barColor = '#64748b'; // slate-500
+                    if (norm.includes('21km') || norm.includes('21')) {
+                      colorClass = 'bg-indigo-50 border-indigo-150 text-indigo-700';
+                      barColor = '#4f46e5';
+                    } else if (norm.includes('10km') || norm.includes('10')) {
+                      colorClass = 'bg-amber-50 border-amber-150 text-amber-700';
+                      barColor = '#d97706';
+                    } else if (norm.includes('5km') || norm.includes('5')) {
+                      colorClass = 'bg-teal-50 border-teal-150 text-teal-700';
+                      barColor = '#0d9488';
+                    } else if (norm.includes('42km') || norm.includes('42')) {
+                      colorClass = 'bg-rose-50 border-rose-150 text-rose-700';
+                      barColor = '#e11d48';
+                    } else if (norm.includes('aquaman') || norm.includes('solo')) {
+                      colorClass = 'bg-blue-50 border-blue-150 text-blue-700';
+                      barColor = '#2563eb';
+                    } else if (norm.includes('sprint') || norm.includes('half')) {
+                      colorClass = 'bg-purple-50 border-purple-150 text-purple-700';
+                      barColor = '#8b5cf6';
+                    }
+
+                    return (
+                      <div key={distance} className="flex flex-col justify-center bg-slate-50/40 p-2 rounded-lg border border-slate-100">
+                        <div className="flex items-center justify-between text-[11px] gap-1">
+                          <span className={`text-[9px] px-1.5 py-0.5 rounded font-extrabold border uppercase tracking-tight whitespace-nowrap ${colorClass}`}>
+                            {distance}
+                          </span>
+                          <span className="font-bold text-slate-700 font-mono text-[10px] whitespace-nowrap">{count} ({percentage}%)</span>
+                        </div>
+                        <div className="w-full bg-slate-200/55 rounded-full h-1 mt-1.5 overflow-hidden">
+                          <div 
+                            className="h-1 rounded-full transition-all duration-500" 
+                            style={{ width: `${percentage}%`, backgroundColor: barColor }}
+                          ></div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )
             )}
           </div>
 
