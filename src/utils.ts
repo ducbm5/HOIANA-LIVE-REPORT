@@ -375,6 +375,58 @@ export function exportToTSV(bookings: Booking[]): string {
   return [headers.join('\t'), ...rows.map(r => r.join('\t'))].join('\n');
 }
 
+function parseDateForSort(dateStr: string | undefined): number {
+  if (!dateStr) return 0;
+  const clean = dateStr.trim();
+  if (!clean) return 0;
+
+  // Prioritize DD/MM/YYYY or DD-MM-YYYY formats to avoid Date.parse() misinterpreting DD/MM as MM/DD
+  const parts = clean.split(/[\sT]+/);
+  const datePart = parts[0];
+  const timePart = parts[1] || '00:00:00';
+
+  const datePartsSlash = datePart.split('/');
+  const datePartsDash = datePart.split('-');
+
+  let day = 0, month = 0, year = 0;
+
+  if (datePartsSlash.length === 3) {
+    day = parseInt(datePartsSlash[0], 10);
+    month = parseInt(datePartsSlash[1], 10);
+    year = parseInt(datePartsSlash[2], 10);
+  } else if (datePartsDash.length === 3) {
+    const p0 = parseInt(datePartsDash[0], 10);
+    const p2 = parseInt(datePartsDash[2], 10);
+    if (datePartsDash[0].length === 4) {
+      year = p0;
+      month = parseInt(datePartsDash[1], 10);
+      day = p2;
+    } else {
+      day = p0;
+      month = parseInt(datePartsDash[1], 10);
+      year = p2;
+    }
+  }
+
+  // If a valid date was split, construct the timestamp directly
+  if (day >= 1 && day <= 31 && month >= 1 && month <= 12 && year >= 1000) {
+    const timeParts = timePart.split(':');
+    const hours = parseInt(timeParts[0], 10) || 0;
+    const minutes = parseInt(timeParts[1], 10) || 0;
+    const seconds = parseInt(timeParts[2], 10) || 0;
+
+    return new Date(year, month - 1, day, hours, minutes, seconds).getTime();
+  }
+
+  // Fallback to standard JS parsing if it is in some other format
+  const directTimestamp = Date.parse(clean);
+  if (!isNaN(directTimestamp)) {
+    return directTimestamp;
+  }
+
+  return 0;
+}
+
 export function exportToExcel(bookings: Booking[]): Uint8Array {
   const headers = [
     'STT',
@@ -395,7 +447,14 @@ export function exportToExcel(bookings: Booking[]): Uint8Array {
     'NGAY TAO'
   ];
 
-  const data = bookings.map((b, index) => {
+  // Clone bookings array to avoid mutating original state, then sort descending by Created At (Ngày Tạo)
+  const sortedBookings = [...bookings].sort((a, b) => {
+    const timeA = parseDateForSort(a.createdAt);
+    const timeB = parseDateForSort(b.createdAt);
+    return timeB - timeA;
+  });
+
+  const data = sortedBookings.map((b, index) => {
     const roomsCount = countRoomsBooked(b.roomNumber);
     const days = b.numberOfDays || 0;
     const roomBookingAmount = roomsCount * days * 2300000;
