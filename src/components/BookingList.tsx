@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { Booking } from '../types';
-import { formatVND, formatDateVi } from '../utils';
+import { formatVND, formatDateVi, countRoomsBooked } from '../utils';
 import { 
   Search, 
   MapPin, 
@@ -218,7 +218,7 @@ export function BookingList({
                           <span className="text-[11px] text-slate-400">Email: </span><span className="font-mono text-slate-600 truncate max-w-[130px] inline-block">{b.email || '-'}</span>
                         </div>
                         <div>
-                          <p className="text-[11px] text-teal-600">B.Phòng: <strong className="font-bold text-teal-700">{formatVND((b.numberOfDays || 1) * 2300000)}</strong></p>
+                          <p className="text-[11px] text-teal-600">B.Phòng: <strong className="font-bold text-teal-700">{formatVND(countRoomsBooked(b.roomNumber) * (b.numberOfDays || 1) * 2300000)}</strong></p>
                         </div>
                       </div>
                     </div>

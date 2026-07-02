@@ -30,16 +30,32 @@ export function countRoomsBooked(roomNumber: string): number {
   const clean = roomNumber.trim().toLowerCase();
   if (clean === '' || clean === 'chưa xếp' || clean === 'chua xep' || clean === '-') return 0;
 
-  // If it's a small single number (e.g., "1", "2"), treat as room count
-  if (/^\d+$/.test(clean)) {
-    const val = parseInt(clean);
-    if (val < 10) return val;
-    return 1;
+  // 1. Check for patterns like "X phòng" or "X phong"
+  const matchQty = clean.match(/(\d+)\s*(phòng|phong)/);
+  if (matchQty) {
+    const qty = parseInt(matchQty[1], 10);
+    if (!isNaN(qty)) return qty;
   }
 
-  // Count elements separated by commas, semicolons, pluses, slashes or spaces
-  const parts = clean.split(/[,\s;\+/]+/).map(p => p.trim()).filter(p => p.length > 0 && p !== 'phòng' && p !== 'phong');
+  // 2. If it is a small single number like "2" or "3", treat as room count
+  if (/^\d+$/.test(clean)) {
+    const val = parseInt(clean, 10);
+    if (val < 100) return val;
+    return 1; // E.g., room "302" is 1 room
+  }
+
+  // 3. Count elements separated by commas, semicolons, pluses, slashes or spaces
+  const parts = clean
+    .split(/[,\s;\+/]+/)
+    .map(p => p.trim())
+    .filter(p => p.length > 0 && p !== 'phòng' && p !== 'phong' && p !== 'room');
+
   if (parts.length > 0) {
+    // If there is only one part and it is a small number (e.g. "3" after filtering out words), return it
+    if (parts.length === 1 && /^\d+$/.test(parts[0])) {
+      const num = parseInt(parts[0], 10);
+      if (num < 100) return num;
+    }
     return parts.length;
   }
   return 1;
@@ -67,7 +83,7 @@ export function calculateStatistics(bookings: Booking[]): Statistics {
       const rooms = countRoomsBooked(b.roomNumber);
       const days = b.numberOfDays || 0;
       totalRoomsBooked += rooms;
-      totalDaysBooked += days;
+      totalDaysBooked += rooms * days;
       totalRoomRevenue += rooms * days * 2300000;
     }
 
@@ -440,6 +456,7 @@ export function exportToExcel(bookings: Booking[]): Uint8Array {
     'NGAY CHECKOUT', 
     'SO NGAY', 
     'SO PHONG', 
+    'SL PHONG', 
     'MA DAT PHONG', 
     'SO TIEN DAT PHONG',
     'TIEN BIB',
@@ -455,7 +472,8 @@ export function exportToExcel(bookings: Booking[]): Uint8Array {
   });
 
   const data = sortedBookings.map((b, index) => {
-    const roomsCount = countRoomsBooked(b.roomNumber);
+    const isCancelled = normalizeStatus(b.status) === 'Đã hủy';
+    const roomsCount = isCancelled ? 0 : countRoomsBooked(b.roomNumber);
     const days = b.numberOfDays || 0;
     const roomBookingAmount = roomsCount * days * 2300000;
     const bibAmount = (b.amount || 0) - roomBookingAmount;
@@ -471,7 +489,8 @@ export function exportToExcel(bookings: Booking[]): Uint8Array {
       'NGAY CHECKIN': formatDateVi(b.checkInDate),
       'NGAY CHECKOUT': formatDateVi(b.checkOutDate),
       'SO NGAY': b.numberOfDays,
-      'SO PHONG': b.roomNumber || '',
+      'SO PHONG': b.roomNumber ? String(b.roomNumber).trim() : '',
+      'SL PHONG': roomsCount,
       'MA DAT PHONG': b.bookingCode || '',
       'SO TIEN DAT PHONG': roomBookingAmount,
       'TIEN BIB': bibAmount,

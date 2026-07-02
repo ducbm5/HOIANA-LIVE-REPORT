@@ -632,7 +632,7 @@ export default function App() {
             <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">2/ PHÂN LUỒNG TRẠNG THÁI & TRA CỨU</h2>
             <div className="flex items-center gap-1 text-[11px] font-medium text-slate-500">
               <span className="w-2 h-2 rounded-full bg-blue-600"></span>
-              <span>Tổng số: <strong className="font-bold text-slate-700">{bookings.length}</strong> đặt phòng</span>
+              <span>Tổng số: <strong className="font-bold text-slate-700">{bookings.length}</strong> lượt đặt phòng</span>
             </div>
           </div>
           <BookingList 
